@@ -51,4 +51,3 @@ words <- names(frequency)
 
 #Let's plot the top 100 words in our cloud.
 wordcloud(words[1:100], frequency[1:100])
-

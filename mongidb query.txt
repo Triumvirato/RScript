@@ -1,0 +1,1 @@
+db.mongotesi.findOne({_id: ObjectId("560d6d543cfad432408b4569")}).bug.product

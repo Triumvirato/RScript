@@ -18,5 +18,5 @@ res = mongo.find.one(m,'tesi_uniba.mongotesi')
 
 
 #Conversion to an R list:
-resl = mongo.bson.to.list(res)
-resl
+#resl = mongo.bson.to.list(res)
+#resl
