@@ -27,11 +27,23 @@ query = mongo.bson.from.buffer(query)
 # define the fields
 fields = mongo.bson.buffer.create()
 
-mongo.bson.buffer.append(fields, "bug.bug_id", 1L)
+#mongo.bson.buffer.append(fields, "bug.bug_id", 1L)
 
 mongo.bson.buffer.append(fields, "bug.product", 1L)
 
+mongo.bson.buffer.append(fields, "bug.component", 1L)
+
+mongo.bson.buffer.append(fields, "bug.creation_ts", 1L)
+
 mongo.bson.buffer.append(fields, "bug.short_desc", 1L)
+
+mongo.bson.buffer.append(fields, "bug.priority", 1L)
+
+mongo.bson.buffer.append(fields, "bug.bug_severity", 1L)
+
+mongo.bson.buffer.append(fields, "bug.reporter", 1L)
+
+mongo.bson.buffer.append(fields, "bug.assigned_to", 1L)
 
 mongo.bson.buffer.append(fields, "_id", 0L)
 
@@ -40,7 +52,7 @@ mongo.bson.buffer.append(fields, "_id", 0L)
 fields = mongo.bson.from.buffer(fields)
 
 # create the cursor
-cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 100L)
+cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 20L)
 
 ## iterate over the cursor
 gids = data.frame(stringsAsFactors = FALSE)
@@ -50,6 +62,9 @@ while (mongo.cursor.next(cursor)) {
   tmp = mongo.bson.to.list(mongo.cursor.value(cursor))
   # make it a dataframe
   tmp.df = as.data.frame(t(unlist(tmp)), stringsAsFactors = F)
+  # concatenate attribute name to attribute value
+  tmp.df$bug.priority=paste("priority", tmp.df$bug.priority ,sep = "_")
+  tmp.df$bug.bug_severity=paste("bug_severity", tmp.df$bug.bug_severity ,sep = "_")
   # bind to the master dataframe
   gids = rbind.fill(gids, tmp.df)
 }
@@ -60,11 +75,7 @@ dim(gids)
 
 head(gids)
 
-
-review_source <- VectorSource(gids)
-
-#Now we can set up the source and create a corpus
-corpus <- Corpus(review_source)
+corpus = VCorpus(DataframeSource(gids),readerControl = list(language="eng"))
 
 #We've transformed every word to lower case
 corpus <- tm_map(corpus, content_transformer(tolower))
@@ -78,21 +89,9 @@ corpus <- tm_map(corpus, stripWhitespace)
 # we removed stop words
 corpus <- tm_map(corpus, removeWords, stopwords("english"))
 
+# we do the stemming of corpus
 
-filtro = subset(corpus, TRUE, select="bug.short_desc")
+corpus = tm_map(corpus,stemDocument,language="english")
 
-#inspect(filtro)
-
-#tdm= TermDocumentMatrix(filtro)
-
-#inspect(tdm)
-
-
-
-combined <- c(corpus, filtro)
-
-tdm= TermDocumentMatrix(combined)
-
-inspect(tdm)
-
-
+dtm = TermDocumentMatrix(corpus)
+inspect(dtm)
