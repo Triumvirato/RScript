@@ -14,7 +14,7 @@ mongo.is.connected(m)
 res = mongo.find.one(m,'tesi_uniba.mongotesi')
 
 #Print res (The result is an object of type mongo.bso)
-#res
+res
 
 
 #Conversion to an R list:
