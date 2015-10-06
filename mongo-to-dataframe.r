@@ -67,11 +67,18 @@ while (mongo.cursor.next(cursor)) {
   
   # concatenate attribute name to attribute value
   tmp.df$bug.priority = paste("priority", tmp.df$bug.priority ,sep = "_")
+  
   tmp.df$bug.bug_severity = paste("bug_severity", tmp.df$bug.bug_severity ,sep = "_")
 
-  
   #Convert string to a date value
   tmp.df$bug.creation_ts = as.Date(tmp.df$bug.creation_ts, format="%Y-%m-%d")
+  
+  #Select only month and year
+  tmp.df$bug.creation_ts = format(tmp.df$bug.creation_ts,"month_%B")
+  
+  #BOOO
+  #tmp.df$bug.creation_year = format(tmp.df$bug.creation_ts,"year_%Y")
+  
   
   
   # bind to the master dataframe
