@@ -1,6 +1,29 @@
 library(rmongodb)
-
+library(plyr)
 library(tm)
+
+
+
+# splitdf function will return a list of training and testing sets
+# trn_size: percentuale training set
+splitdf <- function(dataframe, trn_size=0.8, seed=NULL) {
+  
+  if (!is.null(seed)) set.seed(seed)
+  index <- 1:nrow(dataframe)
+  #trainindex <- sample(index, trunc(length(index)/2))
+  
+  smp_size = floor(trn_size * nrow(gids))
+  
+  trainindex <- sample(seq_len(nrow(gids)), size = smp_size)
+  
+  trainset <- dataframe[trainindex, ]
+  testset <- dataframe[-trainindex, ]
+  list(trainset=trainset,testset=testset)
+  
+}
+
+
+
 
 mongo <- mongo.create(host = "188.166.121.194")
 
@@ -8,7 +31,7 @@ mongo <- mongo.create(host = "188.166.121.194")
 mongo.is.connected(mongo)
 
 
-library(plyr)
+
 
 ## create the empty data frame
 gameids = data.frame(stringsAsFactors = FALSE)
@@ -45,6 +68,14 @@ mongo.bson.buffer.append(fields, "bug.reporter", 1L)
 
 mongo.bson.buffer.append(fields, "bug.assigned_to", 1L)
 
+#Per il training
+mongo.bson.buffer.append(fields, "first_priority", 1L)
+
+mongo.bson.buffer.append(fields, "first_severity", 1L)
+
+
+
+
 mongo.bson.buffer.append(fields, "_id", 0L)
 
 
@@ -80,16 +111,40 @@ while (mongo.cursor.next(cursor)) {
   tmp.df$bug.creation_year = format(tmp.df$bug.creation_ts,"year_%Y")
   
   
-  
   # bind to the master dataframe
   gids = rbind.fill(gids, tmp.df)
+
+  
 }
 
-class(gids)
+#class(gids)
 
-dim(gids)
+#dim(gids)
 
-head(gids)
+#head(gids)
+
+
+
+#Divide data:
+#apply the function
+splits <- splitdf(gids, trn_size=0.5, seed=808)
+
+#it returns a list - two data frames called trainset and testset
+str(splits)
+
+# there are 75 observations in each data frame
+lapply(splits,nrow)
+
+#view the first few columns in each data frame
+lapply(splits,head)
+
+# save the training and testing sets as data frames
+training <- splits$trainset
+testing <- splits$testset
+
+
+
+
 
 corpus = VCorpus(DataframeSource(gids),readerControl = list(language="eng"))
 
