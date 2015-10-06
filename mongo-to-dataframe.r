@@ -1,4 +1,3 @@
-# ciao
 library(rmongodb)
 
 library(tm)
@@ -53,7 +52,7 @@ mongo.bson.buffer.append(fields, "_id", 0L)
 fields = mongo.bson.from.buffer(fields)
 
 # create the cursor
-cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 20L)
+cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 30L)
 
 ## iterate over the cursor
 gids = data.frame(stringsAsFactors = FALSE)
@@ -97,7 +96,7 @@ corpus = VCorpus(DataframeSource(gids),readerControl = list(language="eng"))
 #We've transformed every word to lower case
 corpus <- tm_map(corpus, content_transformer(tolower))
 
-#We've removed all punctuation - 'fun' and 'fun!' will now be the same
+# We've removed all punctuation - 'fun' and 'fun!' will now be the same
 corpus <- tm_map(corpus, removePunctuation)
 
 # stripped out any extra whitespace
@@ -106,9 +105,17 @@ corpus <- tm_map(corpus, stripWhitespace)
 # we removed stop words
 corpus <- tm_map(corpus, removeWords, stopwords("english"))
 
+# we copy the corpus for next completion
+
+corpus.copy = corpus
+
 # we do the stemming of corpus
 
-corpus = tm_map(corpus,stemDocument,language="english")
+corpus.temp = tm_map(corpus,stemDocument,language="english")
+
+# we do completion
+
+corpus.final <- tm_map(corpus.temp, content_transformer(stemCompletion), dictionary = corpus.copy)
 
 dtm = TermDocumentMatrix(corpus)
 inspect(dtm)
