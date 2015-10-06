@@ -54,6 +54,7 @@ corpusPreProcess = function(corpus) {
 
 mongo <- mongo.create(host = "188.166.121.194")
 
+
 #Verify the connection
 mongo.is.connected(mongo)
 
@@ -92,6 +93,11 @@ mongo.bson.buffer.append(fields, "bug.first_severity", 1L)
 mongo.bson.buffer.append(fields, "bug.reporter", 1L)
 
 mongo.bson.buffer.append(fields, "bug.assigned_to", 1L)
+
+#First comment (zero position)
+mongo.bson.buffer.append(fields, "bug.long_desc.thetext", 1L)
+
+
 
 # later should remove these attributes from testing set because not available at t0
 mongo.bson.buffer.append(fields, "bug.days_resolution", 1L)
