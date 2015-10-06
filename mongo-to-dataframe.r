@@ -1,5 +1,7 @@
 library(rmongodb)
 
+library(tm)
+
 mongo <- mongo.create(host = "188.166.121.194")
 
 #Verify the connection
@@ -13,8 +15,6 @@ gameids = data.frame(stringsAsFactors = FALSE)
 
 ## create the namespace
 DBNS = "tesi_uniba.mongotesi"
-
-
 
 # define the query
 query = mongo.bson.buffer.create()
@@ -58,13 +58,22 @@ cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 20
 gids = data.frame(stringsAsFactors = FALSE)
 
 while (mongo.cursor.next(cursor)) {
+  
   # iterate and grab the next record
   tmp = mongo.bson.to.list(mongo.cursor.value(cursor))
+  
   # make it a dataframe
   tmp.df = as.data.frame(t(unlist(tmp)), stringsAsFactors = F)
+  
   # concatenate attribute name to attribute value
-  tmp.df$bug.priority=paste("priority", tmp.df$bug.priority ,sep = "_")
-  tmp.df$bug.bug_severity=paste("bug_severity", tmp.df$bug.bug_severity ,sep = "_")
+  tmp.df$bug.priority = paste("priority", tmp.df$bug.priority ,sep = "_")
+  tmp.df$bug.bug_severity = paste("bug_severity", tmp.df$bug.bug_severity ,sep = "_")
+
+  
+  #Convert string to a date value
+  tmp.df$bug.creation_ts = as.Date(tmp.df$bug.creation_ts, format="%Y-%m-%d")
+  
+  
   # bind to the master dataframe
   gids = rbind.fill(gids, tmp.df)
 }
