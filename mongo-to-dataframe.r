@@ -76,7 +76,7 @@ query = mongo.bson.from.buffer(query)
 # define the fields
 fields = mongo.bson.buffer.create()
 
-#mongo.bson.buffer.append(fields, "bug.bug_id", 1L)
+mongo.bson.buffer.append(fields, "bug.bug_id", 1L)
 
 mongo.bson.buffer.append(fields, "bug.product", 1L)
 
@@ -154,8 +154,10 @@ while (mongo.cursor.next(cursor)) {
 
 #head(gids)
 
-
-
+# append bugs id to row name
+for ( i in 1:nrow(gids)){
+  row.names(gids)[i] = paste(as.character(row.names(gids)[i]),gids[i,1])
+}
 
 #divide data in two df, one for training and one for testing ( trn_size set the boundary )
 splits <- splitdf(gids, trn_size=0.8, seed=204)
@@ -178,9 +180,18 @@ testing <- splits$testset
 testing$bug.priority = NULL
 testing$bug.bug_severity = NULL
 
+#Delete bug.bug_id because isn't useful
+training$bug.bug_id = NULL
+testing$bug.bug_id = NULL
+
 #Create corpora
 corpus_training = VCorpus(DataframeSource(training),readerControl = list(language="eng"))
 corpus_testing = VCorpus(DataframeSource(testing),readerControl = list(language="eng"))
+
+# change corpus id with the id of bug
+for (i in 1:length(corpus_training)) {
+  meta(corpus_training[[i]], tag="id") <- row.names(gids)[i]
+}
 
 #Preproces corpora
 corpus_training = corpusPreProcess(corpus_training)
