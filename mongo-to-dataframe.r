@@ -23,14 +23,39 @@ splitdf <- function(dataframe, trn_size=0.8, seed=NULL) {
 }
 
 
+# corpusPreProcess does the text preprocessing on a corpus
 
+corpusPreProcess = function(corpus) {
+  
+  #transform every word to lower case
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  
+  # remove all punctuation - 'fun' and 'fun!' will now be the same
+  corpus <- tm_map(corpus, removePunctuation)
+  
+  # strip out any extra whitespace
+  corpus <- tm_map(corpus, stripWhitespace)
+  
+  # remove stop words
+  corpus <- tm_map(corpus, removeWords, stopwords("english"))
+  
+  # copy the corpus for next completion
+  corpus.copy = corpus
+  
+  # do the stemming of corpus
+  corpus.temp = tm_map(corpus,stemDocument,language="english")
+  
+  # do the completion of corpus with most frequent term
+  corpus = tm_map(corpus.temp, content_transformer(stemCompletion), dictionary = corpus.copy)
+  
+}
+
+# connect to database 
 
 mongo <- mongo.create(host = "188.166.121.194")
 
 #Verify the connection
 mongo.is.connected(mongo)
-
-
 
 
 ## create the empty data frame
@@ -68,12 +93,10 @@ mongo.bson.buffer.append(fields, "bug.reporter", 1L)
 
 mongo.bson.buffer.append(fields, "bug.assigned_to", 1L)
 
-#Per il training
+# later should remove these attributes from testing set because not available at t0
 mongo.bson.buffer.append(fields, "bug.first_priority", 1L)
 
 mongo.bson.buffer.append(fields, "bug.first_severity", 1L)
-
-
 
 
 mongo.bson.buffer.append(fields, "_id", 0L)
@@ -125,10 +148,9 @@ while (mongo.cursor.next(cursor)) {
 
 
 
-#Divide data
 
-#apply the function
-splits <- splitdf(gids, trn_size=0.5, seed=808)
+#divide data in two df, one for training and one for testing ( trn_size set the boundary )
+splits <- splitdf(gids, trn_size=0.8, seed=204)
 
 #it returns a list - two data frames called trainset and testset
 str(splits)
@@ -143,37 +165,23 @@ lapply(splits,head)
 training <- splits$trainset
 testing <- splits$testset
 
-#end Divide data
 
+#Filter unusable attributes from testing set ( because not available at t0)
+testing$bug.priority = NULL
+testing$bug.bug_severity = NULL
 
-  #Filter data testing
-  testing$bug.priority = NULL
-  testing$bug.bug_severity = NULL
+#Create corpora
+corpus_training = VCorpus(DataframeSource(training),readerControl = list(language="eng"))
+corpus_testing = VCorpus(DataframeSource(testing),readerControl = list(language="eng"))
 
-  
+#Preproces corpora
+corpus_training = corpusPreProcess(corpus_training)
+corpus_testing = corpusPreProcess(corpus_testing)
 
-corpus = VCorpus(DataframeSource(gids),readerControl = list(language="eng"))
+#Create term document matrix for training set
+dtm_training = TermDocumentMatrix(corpus_training)
+inspect(dtm_training)
 
-#We've transformed every word to lower case
-corpus <- tm_map(corpus, content_transformer(tolower))
-
-# We've removed all punctuation - 'fun' and 'fun!' will now be the same
-corpus <- tm_map(corpus, removePunctuation)
-
-# stripped out any extra whitespace
-corpus <- tm_map(corpus, stripWhitespace)
-
-# we removed stop words
-corpus <- tm_map(corpus, removeWords, stopwords("english"))
-
-# we copy the corpus for next completion
-corpus.copy = corpus
-
-# we do the stemming of corpus
-corpus.temp = tm_map(corpus,stemDocument,language="english")
-
-# we do completion
-corpus.final <- tm_map(corpus.temp, content_transformer(stemCompletion), dictionary = corpus.copy)
-
-dtm = TermDocumentMatrix(corpus)
-inspect(dtm)
+#Create term document matrix for testing set
+dtm_testing = TermDocumentMatrix(corpus_testing)
+inspect(dtm_testing)
