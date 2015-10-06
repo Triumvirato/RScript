@@ -1,4 +1,3 @@
-# ciao
 library(rmongodb)
 
 library(tm)
