@@ -85,18 +85,20 @@ mongo.bson.buffer.append(fields, "bug.creation_ts", 1L)
 
 mongo.bson.buffer.append(fields, "bug.short_desc", 1L)
 
-mongo.bson.buffer.append(fields, "bug.priority", 1L)
+mongo.bson.buffer.append(fields, "bug.first_priority", 1L)
 
-mongo.bson.buffer.append(fields, "bug.bug_severity", 1L)
+mongo.bson.buffer.append(fields, "bug.first_severity", 1L)
 
 mongo.bson.buffer.append(fields, "bug.reporter", 1L)
 
 mongo.bson.buffer.append(fields, "bug.assigned_to", 1L)
 
 # later should remove these attributes from testing set because not available at t0
-mongo.bson.buffer.append(fields, "bug.first_priority", 1L)
+mongo.bson.buffer.append(fields, "bug.days_resolution", 1L)
 
-mongo.bson.buffer.append(fields, "bug.first_severity", 1L)
+mongo.bson.buffer.append(fields, "bug.priority", 1L)
+
+mongo.bson.buffer.append(fields, "bug.bug_severity", 1L)
 
 
 mongo.bson.buffer.append(fields, "_id", 0L)
