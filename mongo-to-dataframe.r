@@ -69,9 +69,9 @@ mongo.bson.buffer.append(fields, "bug.reporter", 1L)
 mongo.bson.buffer.append(fields, "bug.assigned_to", 1L)
 
 #Per il training
-mongo.bson.buffer.append(fields, "first_priority", 1L)
+mongo.bson.buffer.append(fields, "bug.first_priority", 1L)
 
-mongo.bson.buffer.append(fields, "first_severity", 1L)
+mongo.bson.buffer.append(fields, "bug.first_severity", 1L)
 
 
 
@@ -125,7 +125,8 @@ while (mongo.cursor.next(cursor)) {
 
 
 
-#Divide data:
+#Divide data
+
 #apply the function
 splits <- splitdf(gids, trn_size=0.5, seed=808)
 
@@ -142,9 +143,14 @@ lapply(splits,head)
 training <- splits$trainset
 testing <- splits$testset
 
+#end Divide data
 
 
+  #Filter data testing
+  testing$bug.priority = NULL
+  testing$bug.bug_severity = NULL
 
+  
 
 corpus = VCorpus(DataframeSource(gids),readerControl = list(language="eng"))
 
@@ -161,15 +167,12 @@ corpus <- tm_map(corpus, stripWhitespace)
 corpus <- tm_map(corpus, removeWords, stopwords("english"))
 
 # we copy the corpus for next completion
-
 corpus.copy = corpus
 
 # we do the stemming of corpus
-
 corpus.temp = tm_map(corpus,stemDocument,language="english")
 
 # we do completion
-
 corpus.final <- tm_map(corpus.temp, content_transformer(stemCompletion), dictionary = corpus.copy)
 
 dtm = TermDocumentMatrix(corpus)
