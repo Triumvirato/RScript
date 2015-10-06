@@ -73,11 +73,11 @@ while (mongo.cursor.next(cursor)) {
   #Convert string to a date value
   tmp.df$bug.creation_ts = as.Date(tmp.df$bug.creation_ts, format="%Y-%m-%d")
   
-  #Select only month and year
-  tmp.df$bug.creation_ts = format(tmp.df$bug.creation_ts,"month_%B")
+  #Select only month
+  tmp.df$bug.creation_month = format(tmp.df$bug.creation_ts,"month_%B")
   
-  #BOOO
-  #tmp.df$bug.creation_year = format(tmp.df$bug.creation_ts,"year_%Y")
+  #Select only year 
+  tmp.df$bug.creation_year = format(tmp.df$bug.creation_ts,"year_%Y")
   
   
   
