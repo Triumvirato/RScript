@@ -50,16 +50,27 @@ while (mongo.cursor.next(cursor)) {
   # make it a dataframe
   tmp.df = as.data.frame(t(unlist(tmp)), stringsAsFactors = F)
   
-  commentiTMP=data.frame(lapply(tmp.df["bug.long_desc.thetext":"bug.long_desc.thetext"], as.character), stringsAsFactors=FALSE)
-  commenti=paste(commentiTMP,collapse=" ") 
+  col_iniziale=which(colnames(tmp.df)=="bug.long_desc.thetext")[1]
+  col_finale=which(colnames(tmp.df)=="bug.long_desc.thetext")[length(which(colnames(tmp.df)=="bug.long_desc.thetext"))]
+  commentiTMP=data.frame(lapply(tmp.df[col_iniziale:col_finale], as.character), stringsAsFactors=FALSE)
+  commenti=paste(commentiTMP,collapse=" ")
+  
+  #remove creations_ts from gids
+  for(i in col_iniziale:col_finale)
+  {
+    tmp.df["bug.long_desc.thetext"]=NULL
+  }
+  tmp.df<- subset(tmp.df, select=-(col_finale-col_iniziale))
+  tmp.df$comments = commenti
+  
+  
   # bind to the master dataframe
   gids = rbind.fill(gids, tmp.df)
   
   
 }
 
-#remove creations_ts from gids
-gids$bug.creation_ts = NULL
+
 
 #class(gids)
 

@@ -44,11 +44,11 @@ corpusPreProcess = function(corpus) {
   corpus.copy = corpus
   
   # do the stemming of corpus
-  corpus.temp = tm_map(corpus,stemDocument,language="english")
+  corpus = tm_map(corpus,stemDocument,language="english")
   
   # do the completion of corpus with most frequent term
   corpus = tm_map(corpus.temp, content_transformer(stemCompletion), dictionary = corpus.copy)
-  
+
 }
 
 # connect to database 
@@ -143,6 +143,26 @@ while (mongo.cursor.next(cursor)) {
   
   #Select only year 
   tmp.df$bug.creation_year = format(tmp.df$bug.creation_ts,"year_%Y")
+  
+  
+  
+  col_iniziale=which(colnames(tmp.df)=="bug.long_desc.thetext")[1]
+  col_finale=which(colnames(tmp.df)=="bug.long_desc.thetext")[length(which(colnames(tmp.df)=="bug.long_desc.thetext"))]
+  #commentiTMP=data.frame(lapply(tmp.df[col_iniziale:col_finale], as.character), stringsAsFactors=FALSE)
+  #commenti=paste(commentiTMP,collapse=" ")
+  
+  #remove columns
+  k=1
+  for(i in col_iniziale:col_finale)
+  {
+    #tmp.df["bug.long_desc.thetext"]=NULL
+    colnames(tmp.df)[i]=paste("comment",k)
+    k=k+1
+  }
+  #tmp.df<- subset(tmp.df, select=-(col_finale-col_iniziale))
+  #tmp.df$comments = commenti
+  
+  
   
   
   # bind to the master dataframe
