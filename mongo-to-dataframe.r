@@ -96,7 +96,7 @@ mongo.bson.buffer.append(fields, "bug.reporter", 1L)
 mongo.bson.buffer.append(fields, "bug.assigned_to", 1L)
 
 #First comment (zero position)
-mongo.bson.buffer.append.element(fields, "bug.long_desc.thetext", 1L)
+mongo.bson.buffer.append(fields, "bug.long_desc.thetext", 1L)
 
 
 
