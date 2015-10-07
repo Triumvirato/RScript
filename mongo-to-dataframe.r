@@ -1,3 +1,4 @@
+#librerie
 library(rmongodb)
 library(plyr)
 library(tm)
