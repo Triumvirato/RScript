@@ -77,6 +77,8 @@ query = mongo.bson.from.buffer(query)
 # define the fields
 fields = mongo.bson.buffer.create()
 
+
+
 mongo.bson.buffer.append(fields, "bug.bug_id", 1L)
 
 mongo.bson.buffer.append(fields, "bug.product", 1L)
@@ -95,10 +97,6 @@ mongo.bson.buffer.append(fields, "bug.reporter", 1L)
 
 mongo.bson.buffer.append(fields, "bug.assigned_to", 1L)
 
-#First comment (zero position)
-mongo.bson.buffer.append(fields, "bug.long_desc.thetext", 1L)
-
-
 
 # later should remove these attributes from testing set because not available at t0
 mongo.bson.buffer.append(fields, "bug.days_resolution", 1L)
@@ -107,6 +105,8 @@ mongo.bson.buffer.append(fields, "bug.priority", 1L)
 
 mongo.bson.buffer.append(fields, "bug.bug_severity", 1L)
 
+#First comment (zero position)
+mongo.bson.buffer.append(fields, "bug.long_desc.thetext", 1L)
 
 mongo.bson.buffer.append(fields, "_id", 0L)
 
