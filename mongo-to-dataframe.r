@@ -61,7 +61,7 @@ mongo.is.connected(mongo)
 
 
 ## create the empty data frame
-gameids = data.frame(stringsAsFactors = FALSE)
+#gameids = data.frame(stringsAsFactors = FALSE)
 
 ## create the namespace
 DBNS = "tesi_uniba.mongotesi"
@@ -96,7 +96,7 @@ mongo.bson.buffer.append(fields, "bug.reporter", 1L)
 mongo.bson.buffer.append(fields, "bug.assigned_to", 1L)
 
 #First comment (zero position)
-mongo.bson.buffer.append(fields, "bug.long_desc.thetext", 1L)
+mongo.bson.buffer.append.element(fields, "bug.long_desc.thetext", 1L)
 
 
 
@@ -115,7 +115,7 @@ mongo.bson.buffer.append(fields, "_id", 0L)
 fields = mongo.bson.from.buffer(fields)
 
 # create the cursor
-cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 30L)
+cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 100L)
 
 ## iterate over the cursor
 gids = data.frame(stringsAsFactors = FALSE)
@@ -132,6 +132,8 @@ while (mongo.cursor.next(cursor)) {
   tmp.df$bug.priority = paste("priority", tmp.df$bug.priority ,sep = "_")
   
   tmp.df$bug.bug_severity = paste("bug_severity", tmp.df$bug.bug_severity ,sep = "_")
+  
+  tmp.df$bug.days_resolution = paste("res_days", tmp.df$bug.days_resolution ,sep = "_")
 
   #Convert string to a date value
   tmp.df$bug.creation_ts = as.Date(tmp.df$bug.creation_ts, format="%Y-%m-%d")
@@ -149,6 +151,9 @@ while (mongo.cursor.next(cursor)) {
   
 }
 
+#remove creations_ts from gids
+gids$bug.creation_ts = NULL
+
 #class(gids)
 
 #dim(gids)
@@ -157,7 +162,7 @@ while (mongo.cursor.next(cursor)) {
 
 # append bugs id to row name
 for ( i in 1:nrow(gids)){
-  row.names(gids)[i] = paste(as.character(row.names(gids)[i]),gids[i,1])
+  row.names(gids)[i] = gids[i,1]
 }
 
 #divide data in two df, one for training and one for testing ( trn_size set the boundary )
@@ -191,7 +196,11 @@ corpus_testing = VCorpus(DataframeSource(testing),readerControl = list(language=
 
 # change corpus id with the id of bug
 for (i in 1:length(corpus_training)) {
-  meta(corpus_training[[i]], tag="id") <- row.names(gids)[i]
+  meta(corpus_training[[i]], tag="id") <- row.names(training)[i]
+}
+
+for (i in 1:length(corpus_testing)) {
+  meta(corpus_testing[[i]], tag="id") <- row.names(testing)[i]
 }
 
 #Preproces corpora
