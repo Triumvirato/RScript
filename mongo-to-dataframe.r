@@ -56,6 +56,28 @@ corpusPreProcess = function(corpus) {
   
   # do the completion of corpus with most frequent term
   #corpus = tm_map(corpus, content_transformer(stemCompletion), dictionary = corpus.copy)
+  
+  L <- length(corpus)
+  charList <- lapply(1:L, function(x) as.character(corpus[[x]]))
+  strSplitList <- lapply(charList, function(x) strsplit(x, " ")[[1]])
+  processedStrSplitList <- lapply(strSplitList, function(x){
+    x <- x[(which(x != ""))] })
+  
+  i <<- 0
+  stemCompletionList <- lapply(processedStrSplitList,  function(x){
+    x <- stemCompletion(x, dictionary=corpus.copy, type="prevalent")
+    names(x) <- NULL
+    x <- paste(x, collapse = " ")
+    print(i <<- i + 1)
+    print(x)	
+  })
+  
+  
+  ## creazione e salvataggio del corpus pre-processato
+  corpus <- VCorpus(VectorSource(as.character(stemCompletionList)))
+  writeLines(as.character(corpus[[1]]))
+  
+  return (corpus)
 
 }
 
