@@ -31,12 +31,6 @@ corpusPreProcess = function(corpus) {
   #transform every word to lower case
   corpus <- tm_map(corpus, content_transformer(tolower))
   
-  # remove all punctuation - 'fun' and 'fun!' will now be the same
-  corpus <- tm_map(corpus, removePunctuation)
-  
-  # strip out any extra whitespace
-  corpus <- tm_map(corpus, stripWhitespace)
-  
   # remove URLs (versione 1)
   #removeURL <- function(x) gsub("http[[:alnum:]]*", "", x)
   #corpus <- tm_map(corpus, content_transformer(removeURL))
@@ -45,14 +39,31 @@ corpusPreProcess = function(corpus) {
   toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
   corpus <- tm_map(corpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
   
+  # remove all punctuation - 'fun' and 'fun!' will now be the same
+  corpus <- tm_map(corpus, removePunctuation)
+  
+  # strip out any extra whitespace
+  corpus <- tm_map(corpus, stripWhitespace)
+  
   # remove stop words
   corpus <- tm_map(corpus, removeWords, stopwords("english"))
+  
+  # remove all strings which start with numbers
+  corpus <- tm_map(corpus, toSpace, "[[:digit:]]+")
+  # remove all strings which start with non alfanumeric characters
+  corpus <- tm_map(corpus, toSpace, "[^[:alnum:]]+")
   
   # copy the corpus for next completion
   corpus.copy = corpus
   
   # do the stemming of corpus
   corpus = tm_map(corpus,stemDocument,language="english")
+  
+  # remove again all punctuation
+  corpus <- tm_map(corpus, removePunctuation)
+  
+  # strip out again any extra whitespace
+  corpus <- tm_map(corpus, stripWhitespace)
   
   # do the completion of corpus with most frequent term
   #corpus = tm_map(corpus, content_transformer(stemCompletion), dictionary = corpus.copy)
