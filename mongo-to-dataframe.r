@@ -37,9 +37,13 @@ corpusPreProcess = function(corpus) {
   # strip out any extra whitespace
   corpus <- tm_map(corpus, stripWhitespace)
   
-  # remove URLs ?!
-  removeURL <- function(x) gsub("http[[:alnum:]]*", "", x)
-  corpus <- tm_map(corpus, content_transformer(removeURL))
+  # remove URLs (versione 1)
+  #removeURL <- function(x) gsub("http[[:alnum:]]*", "", x)
+  #corpus <- tm_map(corpus, content_transformer(removeURL))
+  
+  # remove URLs
+  toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+  corpus <- tm_map(corpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
   
   # remove stop words
   corpus <- tm_map(corpus, removeWords, stopwords("english"))
@@ -51,7 +55,8 @@ corpusPreProcess = function(corpus) {
   corpus = tm_map(corpus,stemDocument,language="english")
   
   # do the completion of corpus with most frequent term
-  corpus = tm_map(corpus, content_transformer(stemCompletion), dictionary = corpus.copy)
+  #corpus = tm_map(corpus, content_transformer(stemCompletion), dictionary = corpus.copy)
+
 }
 
 
