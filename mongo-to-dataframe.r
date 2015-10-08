@@ -4,9 +4,10 @@ library(plyr)
 library(tm)
 
 
-
-# splitdf function will return a list of training and testing sets
-# trn_size: percentuale training set
+###
+### splitdf function will return a list of training and testing sets
+### trn_size: percentuale training set
+###
 splitdf <- function(dataframe, trn_size=0.8, seed=NULL) {
   
   if (!is.null(seed)) set.seed(seed)
@@ -23,9 +24,9 @@ splitdf <- function(dataframe, trn_size=0.8, seed=NULL) {
   
 }
 
-
-# corpusPreProcess does the text preprocessing on a corpus
-
+###
+### corpusPreProcess does the text preprocessing on a corpus
+###
 corpusPreProcess = function(corpus) {
   
   #transform every word to lower case
@@ -48,36 +49,29 @@ corpusPreProcess = function(corpus) {
   
   # do the completion of corpus with most frequent term
   #corpus = tm_map(corpus.temp, content_transformer(stemCompletion), dictionary = corpus.copy)
-
 }
 
-# connect to database 
 
+# connect to database
 mongo <- mongo.create(host = "188.166.121.194")
 
 
-#Verify the connection
+# Verify the connection
 mongo.is.connected(mongo)
 
-
-## create the empty data frame
-#gameids = data.frame(stringsAsFactors = FALSE)
-
-## create the namespace
+# create the namespace
 DBNS = "tesi_uniba.mongotesi"
 
 # define the query
 query = mongo.bson.buffer.create()
 
-#mongo.bson.buffer.append(query, "bug.bug_id", "45271")
+# mongo.bson.buffer.append(query, "bug.bug_id", "45271")
 
 # when complete, make object from buffer
 query = mongo.bson.from.buffer(query)
 
 # define the fields
 fields = mongo.bson.buffer.create()
-
-
 
 mongo.bson.buffer.append(fields, "bug.bug_id", 1L)
 
@@ -97,7 +91,6 @@ mongo.bson.buffer.append(fields, "bug.reporter", 1L)
 
 mongo.bson.buffer.append(fields, "bug.assigned_to", 1L)
 
-
 # later should remove these attributes from testing set because not available at t0
 mongo.bson.buffer.append(fields, "bug.days_resolution", 1L)
 
@@ -105,10 +98,11 @@ mongo.bson.buffer.append(fields, "bug.priority", 1L)
 
 mongo.bson.buffer.append(fields, "bug.bug_severity", 1L)
 
-#First comment (zero position)
+# All Comments
 mongo.bson.buffer.append(fields, "bug.long_desc.thetext", 1L)
 
 mongo.bson.buffer.append(fields, "_id", 0L)
+
 
 
 # when complete, make object from buffer
@@ -117,7 +111,7 @@ fields = mongo.bson.from.buffer(fields)
 # create the cursor
 cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 100L)
 
-## iterate over the cursor
+# iterate over the cursor
 gids = data.frame(stringsAsFactors = FALSE)
 
 while (mongo.cursor.next(cursor)) {
@@ -135,19 +129,18 @@ while (mongo.cursor.next(cursor)) {
   
   tmp.df$bug.days_resolution = paste("res_days", tmp.df$bug.days_resolution ,sep = "_")
 
-  #Convert string to a date value
+  # Convert string to a date value
   tmp.df$bug.creation_ts = as.Date(tmp.df$bug.creation_ts, format="%Y-%m-%d")
   
-  #Select only month
+  # Select only month
   tmp.df$bug.creation_month = format(tmp.df$bug.creation_ts,"month_%B")
   
-  #Select only year 
+  # Select only year 
   tmp.df$bug.creation_year = format(tmp.df$bug.creation_ts,"year_%Y")
   
   
-  
-  col_iniziale=which(colnames(tmp.df)=="bug.long_desc.thetext")[1]
-  col_finale=which(colnames(tmp.df)=="bug.long_desc.thetext")[length(which(colnames(tmp.df)=="bug.long_desc.thetext"))]
+  col_iniziale = which(colnames(tmp.df)=="bug.long_desc.thetext")[1]
+  col_finale = which(colnames(tmp.df)=="bug.long_desc.thetext")[length(which(colnames(tmp.df)=="bug.long_desc.thetext"))]
   
   #versione 1: collassa i commenti in un unico campo comments
   #commentiTMP=data.frame(lapply(tmp.df[col_iniziale:col_finale], as.character), stringsAsFactors=FALSE)
@@ -161,13 +154,13 @@ while (mongo.cursor.next(cursor)) {
   ##tmp.df<- subset(tmp.df, select=-(col_finale-col_iniziale))
   #tmp.df$comments = commenti
   
-  #versione 2: utilizza una colonna per ogni commento
-
+  
+  # Versione 2: utilizza una colonna per ogni commento
   k=1
   for(i in col_iniziale:col_finale)
   {
     #rinonimo le colonne dei commenti come 'comment k'
-    colnames(tmp.df)[i]=paste("comment",k)
+    colnames(tmp.df)[i] = paste("comment",k)
     k=k+1
   }
   
@@ -186,37 +179,38 @@ gids$bug.creation_ts = NULL
 
 #head(gids)
 
+
+
 # append bugs id to row name
-for ( i in 1:nrow(gids)){
+for (i in 1:nrow(gids)){
   row.names(gids)[i] = gids[i,1]
 }
 
-#divide data in two df, one for training and one for testing ( trn_size set the boundary )
+# divide data in two df, one for training and one for testing ( trn_size set the boundary )
 splits <- splitdf(gids, trn_size=0.8, seed=204)
 
-#it returns a list - two data frames called trainset and testset
+# it returns a list - two data frames called trainset and testset
 str(splits)
 
-# there are 75 observations in each data frame
-lapply(splits,nrow)
+lapply(splits, nrow)
 
-#view the first few columns in each data frame
-lapply(splits,head)
+# view the first few columns in each data frame
+lapply(splits, head)
 
 # save the training and testing sets as data frames
 training <- splits$trainset
 testing <- splits$testset
 
 
-#Filter unusable attributes from testing set ( because not available at t0)
+# Filter unusable attributes from testing set ( because not available at t0)
 testing$bug.priority = NULL
 testing$bug.bug_severity = NULL
 
-#Delete bug.bug_id because isn't useful
+# Delete bug.bug_id because isn't useful
 training$bug.bug_id = NULL
 testing$bug.bug_id = NULL
 
-#Create corpora
+# Create corpora
 corpus_training = VCorpus(DataframeSource(training),readerControl = list(language="eng"))
 corpus_testing = VCorpus(DataframeSource(testing),readerControl = list(language="eng"))
 
@@ -229,7 +223,7 @@ for (i in 1:length(corpus_testing)) {
   meta(corpus_testing[[i]], tag="id") <- row.names(testing)[i]
 }
 
-#Preproces corpora
+# Preproces corpora
 corpus_training = corpusPreProcess(corpus_training)
 corpus_testing = corpusPreProcess(corpus_testing)
 
