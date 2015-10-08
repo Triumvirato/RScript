@@ -21,7 +21,6 @@ splitdf <- function(dataframe, trn_size=0.8, seed=NULL) {
   trainset <- dataframe[trainindex, ]
   testset <- dataframe[-trainindex, ]
   list(trainset=trainset,testset=testset)
-  
 }
 
 ###
@@ -38,6 +37,10 @@ corpusPreProcess = function(corpus) {
   # strip out any extra whitespace
   corpus <- tm_map(corpus, stripWhitespace)
   
+  # remove URLs ?!
+  removeURL <- function(x) gsub("http[[:alnum:]]*", "", x)
+  corpus <- tm_map(corpus, content_transformer(removeURL))
+  
   # remove stop words
   corpus <- tm_map(corpus, removeWords, stopwords("english"))
   
@@ -48,13 +51,12 @@ corpusPreProcess = function(corpus) {
   corpus = tm_map(corpus,stemDocument,language="english")
   
   # do the completion of corpus with most frequent term
-  #corpus = tm_map(corpus.temp, content_transformer(stemCompletion), dictionary = corpus.copy)
+  corpus = tm_map(corpus, content_transformer(stemCompletion), dictionary = corpus.copy)
 }
 
 
 # connect to database
 mongo <- mongo.create(host = "188.166.121.194")
-
 
 # Verify the connection
 mongo.is.connected(mongo)
