@@ -28,66 +28,83 @@ splitdf <- function(dataframe, trn_size=0.8, seed=NULL) {
 ###
 corpusPreProcess = function(corpus) {
   
-  #transform every word to lower case
-  corpus <- tm_map(corpus, content_transformer(tolower))
+  ## operazioni di pre-processing
+  ## converte tutto in minuscolo
+  tmCorpus <- tm_map(corpus, content_transformer(tolower))
+  writeLines(as.character(tmCorpus[[1]]))
+  ## verifica che i documenti siano di tipo <<PlainTextDocument>>
+  inspect(tmCorpus[1])
   
-  # remove URLs (versione 1)
-  #removeURL <- function(x) gsub("http[[:alnum:]]*", "", x)
-  #corpus <- tm_map(corpus, content_transformer(removeURL))
+  ## rimozione url's
+  writeLines(as.character(tmCorpus[[1]]))
+  removeUrl <- content_transformer(function(x){
+    gsub("[[:punct:]]?http[s]?://[[:graph:]]*[[:punct:]]?", "", x)
+  })
+  tmCorpus <- tm_map(tmCorpus, removeUrl)
+  writeLines(as.character(tmCorpus[[1]]))
+  inspect(tmCorpus[1])
   
-  # remove URLs
-  toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
-  corpus <- tm_map(corpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
+  ## rimuove i numeri e la punteggiatura, preservando i 'dashes' nelle parole composte
+  tmCorpus <- tm_map(tmCorpus, removeNumbers) 
+  tmCorpus <- tm_map(tmCorpus, removePunctuation, preserve_intra_word_dashes = TRUE)
+  writeLines(as.character(tmCorpus[[1]]))
+  inspect(tmCorpus[1])
   
-  # remove all punctuation - 'fun' and 'fun!' will now be the same
-  corpus <- tm_map(corpus, removePunctuation)
+  ## funzione ad-hoc per la rimozione delle stopwords, scritta da F. Palmiotto
+  my.removeWords <- content_transformer(function(x, words.to.remove){ 
+    return(PlainTextDocument(paste(sapply(strsplit(x, 
+                                                   "[[:space:]]")[[1]], function(y){
+                                                     ifelse(grepl("-", y), y, ifelse(y %in% words.to.remove, "", y))
+                                                   }), collapse = " ")))
+  })
   
-  # strip out any extra whitespace
-  corpus <- tm_map(corpus, stripWhitespace)
+  ## rimozione delle stopwords utilizzando la funzione 'my.stopwords'
+  my.stopwords <- stopwords("english")
+  tmCorpus <- tm_map(tmCorpus, my.removeWords, my.stopwords)
+  writeLines(as.character(tmCorpus[[1]]))
+  inspect(tmCorpus[1]) 
   
-  # remove stop words
-  corpus <- tm_map(corpus, removeWords, stopwords("english"))
+  ## conserviamo una copia del corpus, rimuovendo gli spazi bianchi in eccesso
+  tmCorpusCopy <- tmCorpus
+  tmCorpusCopy <- tm_map(tmCorpusCopy, stripWhitespace)
+  writeLines(as.character(tmCorpusCopy[[1]]))
+  inspect(tmCorpusCopy[1])
   
-  # remove all strings which start with numbers
-  #corpus <- tm_map(corpus, toSpace, "[[:digit:]]+") <-------------------------------
-  # remove all strings which start with non alfanumeric characters
-  corpus <- tm_map(corpus, toSpace, "[^[:alnum:]]+")
+  ## stemmizzazione
+  tmCorpus <- tm_map(tmCorpus, stemDocument, language="english")
+  writeLines(as.character(tmCorpus[[1]]))
+  inspect(tmCorpus[1])
   
-  # copy the corpus for next completion
-  corpus.copy = corpus
+  ## rimuoviamo gli spazi in eccesso nel corpus stemmizzato
+  tmCorpus <- tm_map(tmCorpus, stripWhitespace)
+  writeLines(as.character(tmCorpus[[1]]))
+  inspect(tmCorpus[1])
   
-  # do the stemming of corpus
-  corpus = tm_map(corpus,stemDocument,language="english")
+  ## ri-completamento dei termini stemmizzati 
+  L <- length(tmCorpus)
+  charList <- lapply(1:L, function(x) as.character(tmCorpus[[x]]))
+  strSplitList <- lapply(charList, function(x) strsplit(x, " ")[[1]])
+  processedStrSplitList <- lapply(strSplitList, function(x){
+    x <- x[(which(x != ""))]
+    ## non rimuoviamo più  le parole formate da un sola lettera, ma lo facciamo a posteriori
+    ##	notSingletons <- which(lapply(strsplit(x, split = ""), length) > 1)
+    ##	x <- x[notSingletons]
+  })
   
-  # remove again all punctuation
-  corpus <- tm_map(corpus, removePunctuation)
-  
-  # strip out again any extra whitespace
-  corpus <- tm_map(corpus, stripWhitespace)
-  
-  # do the completion of corpus with most frequent term
-  #corpus = tm_map(corpus, content_transformer(stemCompletion), dictionary = corpus.copy)
-  
-            #codice per la Completion alternativa (prof Bilancia) da rivedere
-            #L <- length(corpus)
-            #charList <- lapply(1:L, function(x) as.character(corpus[[x]]))
-            #strSplitList <- lapply(charList, function(x) strsplit(x, " ")[[1]])
-            #processedStrSplitList <- lapply(strSplitList, function(x){
-            #  x <- x[(which(x != ""))] })
-            
-            #i <<- 0
-            #stemCompletionList <- lapply(processedStrSplitList,  function(x){
-            #  x <- stemCompletion(x, dictionary=corpus.copy, type="prevalent")
-            #  names(x) <- NULL
-            #  x <- paste(x, collapse = " ")
-            #  print(i <<- i + 1)
-            #  print(x)	
-            #})
+  ## completamento con il token più frequente
+  i <<- 0
+  stemCompletionList <- lapply(processedStrSplitList,  function(x){
+    x <- stemCompletion(x, dictionary=tmCorpusCopy, type="prevalent")
+    names(x) <- NULL
+    x <- paste(x, collapse = " ")
+    print(i <<- i + 1)
+    print(x)	
+  })
   
   
-            ### creazione e salvataggio del corpus pre-processato
-            #corpus <- VCorpus(VectorSource(as.character(stemCompletionList)))
-            #writeLines(as.character(corpus[[1]]))
+  ## creazione e salvataggio del corpus pre-processato
+  corpus <- VCorpus(VectorSource(as.character(stemCompletionList)))
+  writeLines(as.character(corpus[[1]]))
   
   return (corpus)
 
@@ -180,34 +197,30 @@ while (mongo.cursor.next(cursor)) {
   tmp.df$bug.creation_year = format(tmp.df$bug.creation_ts,"year_%Y")
   
   
-  col_primo = which(colnames(tmp.df)=="bug.long_desc.thetext")[1]
-  col_iniziale = which(colnames(tmp.df)=="bug.long_desc.thetext")[2]
+  col_iniziale = which(colnames(tmp.df)=="bug.long_desc.thetext")[1]
   col_finale = which(colnames(tmp.df)=="bug.long_desc.thetext")[length(which(colnames(tmp.df)=="bug.long_desc.thetext"))]
   
   #versione 1: collassa i commenti in un unico campo comments
-  
-  commentiTMP=data.frame(lapply(tmp.df[col_iniziale:col_finale], as.character), stringsAsFactors=FALSE)
-  commenti=paste(commentiTMP,collapse=" ")
-  
-  colnames(tmp.df)[col_primo] <- "first_comment"
+  #commentiTMP=data.frame(lapply(tmp.df[col_iniziale:col_finale], as.character), stringsAsFactors=FALSE)
+  #commenti=paste(commentiTMP,collapse=" ")
   
   #remove columns
-  for(i in col_iniziale:col_finale)
-  {
-    tmp.df["bug.long_desc.thetext"]=NULL
-  }
+  #for(i in col_iniziale:col_finale)
+  #{
+  #  tmp.df["bug.long_desc.thetext"]=NULL
+  #}
   ##tmp.df<- subset(tmp.df, select=-(col_finale-col_iniziale))
-  tmp.df$comments = commenti
+  #tmp.df$comments = commenti
   
   
   # Versione 2: utilizza una colonna per ogni commento
-  #k=1
-  #for(i in col_iniziale:col_finale)
-  #{
-  #  #rinonimo le colonne dei commenti come 'comment k'
-  #  colnames(tmp.df)[i] = paste("comment",k)
-  #  k=k+1
-  #}
+  k=1
+  for(i in col_iniziale:col_finale)
+  {
+    #rinonimo le colonne dei commenti come 'comment k'
+    colnames(tmp.df)[i] = paste("comment",k)
+    k=k+1
+  }
   
   # bind to the master dataframe
   gids = rbind.fill(gids, tmp.df)
@@ -250,7 +263,6 @@ testing <- splits$testset
 # Filter unusable attributes from testing set ( because not available at t0)
 testing$bug.priority = NULL
 testing$bug.bug_severity = NULL
-testing$comments = NULL
 
 # Delete bug.bug_id because isn't useful
 training$bug.bug_id = NULL
