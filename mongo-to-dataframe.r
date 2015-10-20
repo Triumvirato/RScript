@@ -89,6 +89,12 @@ corpusPreProcess = function(corpus) {
   }
   
   corpus <- tm_map(corpus, remove.short.terms,min.length=3)
+<<<<<<< HEAD
+=======
+  
+  # copy the corpus for next completion
+  corpus.copy = corpus
+>>>>>>> 4ca8ca0c45e419a447a00fb412bee6ec5517ceb5
   
   
   # remove again all punctuation
