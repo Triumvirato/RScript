@@ -63,6 +63,7 @@ corpusPreProcess = function(corpus) {
   # strip out again any extra whitespace
   corpus <- tm_map(corpus, stripWhitespace)
   
+  #aaaaaaaaaa
   corpus <- tm_map(corpus, removeNumbers)
   
   # do the stemming of corpus
@@ -103,6 +104,59 @@ corpusPreProcess = function(corpus) {
   
   return (corpus)
 
+}
+
+corpusPreProcess2 = function(corpus) {
+  
+  #transform every word to lower case
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  
+  # remove URLs (versione 1)
+  #removeURL <- function(x) gsub("http[[:alnum:]]*", "", x)
+  #corpus <- tm_map(corpus, content_transformer(removeURL))
+  
+  # remove URLs
+  toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+  corpus <- tm_map(corpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
+  
+  # copy the corpus for next completion
+  corpus.copy = corpus
+  
+  # remove all punctuation - 'fun' and 'fun!' will now be the same
+  corpus <- tm_map(corpus, removePunctuation)
+  
+  # strip out any extra whitespace
+  corpus <- tm_map(corpus, stripWhitespace)
+  
+  # remove stop words
+  corpus <- tm_map(corpus, removeWords, stopwords("english"))
+  
+  # remove all strings which start with numbers
+  #corpus <- tm_map(corpus, toSpace, "[[:digit:]]+") <-------------------------------
+  # remove all strings which start with non alfanumeric characters
+  corpus <- tm_map(corpus, toSpace, "[^[:alnum:]]+")
+  
+  
+  
+  # remove again all punctuation
+  corpus <- tm_map(corpus, removePunctuation)
+  
+  # strip out again any extra whitespace
+  corpus <- tm_map(corpus, stripWhitespace)
+  
+  #aaaaaaaaaa
+  corpus <- tm_map(corpus, removeNumbers)
+  
+  # do the stemming of corpus
+  corpus = tm_map(corpus, stemDocument, language = "english")
+  
+  
+  # do the completion of corpus with most frequent term
+  corpus= tm_map(corpus, content_transformer(stemCompletion), dictionary = corpus.copy)
+
+  
+  return (corpus)
+  
 }
 
 
@@ -272,9 +326,16 @@ testing$bug.bug_id = NULL
 corpus_training = Corpus(VectorSource(training$comments),readerControl = list(language="eng"))
 corpus_testing = Corpus(DataframeSource(testing),readerControl = list(language="eng"))
 
+training$comments<-NULL
+corpus_training2 = Corpus(VectorSource(training),readerControl = list(language="eng"))
+
 # change corpus id with the id of bug
 for (i in 1:length(corpus_training)) {
   meta(corpus_training[[i]], tag="id") <- row.names(training)[i]
+}
+
+for (i in 1:length(corpus_training2)) {
+  meta(corpus_training2[[i]], tag="id") <- row.names(training)[i]
 }
 
 for (i in 1:length(corpus_testing)) {
@@ -283,15 +344,21 @@ for (i in 1:length(corpus_testing)) {
 
 # Preproces corpora
 corpus_training = corpusPreProcess(corpus_training)
+corpus_training2 = corpusPreProcess2(corpus_training2)
 corpus_testing = corpusPreProcess(corpus_testing)
 
-
+bau<-c(corpus_training2,corpus_training)
+bauM <- TermDocumentMatrix(bau)
+inspect(bauM)
 #Create term document matrix for training set
 dtm_training <- TermDocumentMatrix(corpus_training)
 
 
 
 inspect(dtm_training)
+
+dtm_training2 <- TermDocumentMatrix(corpus_training2)
+
 
 #Create term document matrix for testing set
 dtm_testing = TermDocumentMatrix(corpus_testing)

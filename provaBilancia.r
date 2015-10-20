@@ -50,17 +50,13 @@ corpusPreProcess = function(corpus) {
   writeLines(as.character(tmCorpus[[1]]))
   inspect(tmCorpus[1])
   
+  
   ## funzione ad-hoc per la rimozione delle stopwords, scritta da F. Palmiotto
-  my.removeWords <- content_transformer(function(x, words.to.remove){ 
-    return(PlainTextDocument(paste(sapply(strsplit(x, 
-                                                   "[[:space:]]")[[1]], function(y){
-                                                     ifelse(grepl("-", y), y, ifelse(y %in% words.to.remove, "", y))
-                                                   }), collapse = " ")))
-  })
+  
   
   ## rimozione delle stopwords utilizzando la funzione 'my.stopwords'
   my.stopwords <- stopwords("english")
-  tmCorpus <- tm_map(tmCorpus, my.removeWords, my.stopwords)
+  tmCorpus <- tm_map(tmCorpus, removeWords, my.stopwords)
   writeLines(as.character(tmCorpus[[1]]))
   inspect(tmCorpus[1]) 
   
@@ -80,33 +76,38 @@ corpusPreProcess = function(corpus) {
   writeLines(as.character(tmCorpus[[1]]))
   inspect(tmCorpus[1])
   
+  ## rimuove i numeri e la punteggiatura, preservando i 'dashes' nelle parole composte
+  tmCorpus <- tm_map(tmCorpus, removeNumbers) 
+  tmCorpus <- tm_map(tmCorpus, removePunctuation, preserve_intra_word_dashes = TRUE)
+  writeLines(as.character(tmCorpus[[1]]))
+  inspect(tmCorpus[1])
+  
+  
+  
   ## ri-completamento dei termini stemmizzati 
-  L <- length(tmCorpus)
-  charList <- lapply(1:L, function(x) as.character(tmCorpus[[x]]))
-  strSplitList <- lapply(charList, function(x) strsplit(x, " ")[[1]])
-  processedStrSplitList <- lapply(strSplitList, function(x){
-    x <- x[(which(x != ""))]
-    ## non rimuoviamo più  le parole formate da un sola lettera, ma lo facciamo a posteriori
-    ##	notSingletons <- which(lapply(strsplit(x, split = ""), length) > 1)
-    ##	x <- x[notSingletons]
-  })
+  
   
   ## completamento con il token più frequente
-  i <<- 0
-  stemCompletionList <- lapply(processedStrSplitList,  function(x){
-    x <- stemCompletion(x, dictionary=tmCorpusCopy, type="prevalent")
-    names(x) <- NULL
-    x <- paste(x, collapse = " ")
-    print(i <<- i + 1)
-    print(x)	
-  })
+  
+  
+  ## elimina di termini insignificanti di lunghezza uguale <= 2
+  
+  
+  ## elimina di termini scarsamente significativi di lunghezza > 15
+  
+  
   
   
   ## creazione e salvataggio del corpus pre-processato
-  corpus <- VCorpus(VectorSource(as.character(stemCompletionList)))
-  writeLines(as.character(corpus[[1]]))
+  tmCorpusPreProcessed <- VCorpus(VectorSource(as.character(tmCorpus)))
+  writeLines(as.character(tmCorpusPreProcessed[[1]]))
   
-  return (corpus)
+  ## rimuoviamo un'ultima volta gli spazi bianchi in eccesso
+  tmCorpusPreProcessed <- tm_map(tmCorpusPreProcessed, stripWhitespace)
+  writeLines(as.character(tmCorpusPreProcessed[[1]]))
+  
+  
+  return (tmCorpusPreProcessed)
 
 }
 

@@ -2,6 +2,17 @@
 library(rmongodb)
 library(plyr)
 library(tm)
+library(rJava)
+
+java.stem.completion <- function(corpus, dictionary, num.threads = 1)
+{
+  .jinit(classpath = ".", force.init = TRUE)
+  stem.completion.obj <- .jnew("stem_completion/StemCompletion",
+                               as.character(corpus), as.character(dictionary),
+                               as.integer(num.threads))
+  result <- VCorpus(VectorSource(stem.completion.obj$stemCompletion()))
+  return(result)
+}
 
 
 ###
@@ -28,9 +39,6 @@ splitdf <- function(dataframe, trn_size=0.8, seed=NULL) {
 ###
 corpusPreProcess = function(corpus) {
   
-  #transform every word to lower case
-  corpus <- tm_map(corpus, content_transformer(tolower))
-  
   # remove URLs (versione 1)
   #removeURL <- function(x) gsub("http[[:alnum:]]*", "", x)
   #corpus <- tm_map(corpus, content_transformer(removeURL))
@@ -39,11 +47,27 @@ corpusPreProcess = function(corpus) {
   toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
   corpus <- tm_map(corpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
   
+  # transform every word to lower case
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  
   # remove all punctuation - 'fun' and 'fun!' will now be the same
   corpus <- tm_map(corpus, removePunctuation)
   
   # strip out any extra whitespace
   corpus <- tm_map(corpus, stripWhitespace)
+  
+  # remove all strings longer than 15 characters
+  remove.long.terms = function(x, max.length)
+  {
+    return(PlainTextDocument(paste(sapply(strsplit(as.character(x), " "),
+                                          function(y)
+                                          {
+                                            ifelse(nchar(y) > max.length, "", y)
+                                          }
+    ), collapse = " ")))
+  }
+  
+  corpus <- tm_map(corpus, remove.long.terms,max.length=15)
   
   # remove stop words
   corpus <- tm_map(corpus, removeWords, stopwords("english"))
@@ -53,17 +77,28 @@ corpusPreProcess = function(corpus) {
   # remove all strings which start with non alfanumeric characters
   corpus <- tm_map(corpus, toSpace, "[^[:alnum:]]+")
   
-  # copy the corpus for next completion
-  corpus.copy = corpus
+  # remove all strings shorter than 3 characters
+  remove.short.terms = function(x, min.length)
+  {
+    return(PlainTextDocument(paste(sapply(strsplit(as.character(x), " "),
+                                          function(y)
+                                          {
+                                            ifelse(nchar(y) < min.length, "", y)
+                                          }
+    ), collapse = " ")))
+  }
   
-  # do the stemming of corpus
-  corpus = tm_map(corpus,stemDocument,language="english")
+  corpus <- tm_map(corpus, remove.short.terms,min.length=3)
+  
   
   # remove again all punctuation
   corpus <- tm_map(corpus, removePunctuation)
   
   # strip out again any extra whitespace
   corpus <- tm_map(corpus, stripWhitespace)
+  
+  # do the stemming of corpus
+  corpus = tm_map(corpus,stemDocument,language="english")
   
   # do the completion of corpus with most frequent term
   #corpus = tm_map(corpus, content_transformer(stemCompletion), dictionary = corpus.copy)
@@ -88,6 +123,12 @@ corpusPreProcess = function(corpus) {
             ### creazione e salvataggio del corpus pre-processato
             #corpus <- VCorpus(VectorSource(as.character(stemCompletionList)))
             #writeLines(as.character(corpus[[1]]))
+  
+            # creo dizionario
+            # copy the corpus for next completion
+            corpus.copy = corpus
+            dict <- DocumentTermMatrix(corpus)
+            corpus = java.stem.completion(corpus, corpus.copy, num.threads = 1)
   
   return (corpus)
 
@@ -257,8 +298,12 @@ training$bug.bug_id = NULL
 testing$bug.bug_id = NULL
 
 # Create corpora
-corpus_training = VCorpus(DataframeSource(training),readerControl = list(language="eng"))
+corpus_training = Corpus(VectorSource(training),readerControl = list(language="eng"))
 corpus_testing = VCorpus(DataframeSource(testing),readerControl = list(language="eng"))
+
+# Preproces corpora
+corpus_training = corpusPreProcess(corpus_training)
+corpus_testing = corpusPreProcess(corpus_testing)
 
 # change corpus id with the id of bug
 for (i in 1:length(corpus_training)) {
@@ -268,10 +313,6 @@ for (i in 1:length(corpus_training)) {
 for (i in 1:length(corpus_testing)) {
   meta(corpus_testing[[i]], tag="id") <- row.names(testing)[i]
 }
-
-# Preproces corpora
-corpus_training = corpusPreProcess(corpus_training)
-corpus_testing = corpusPreProcess(corpus_testing)
 
 #Create term document matrix for training set
 dtm_training = TermDocumentMatrix(corpus_training)
