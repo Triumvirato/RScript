@@ -28,9 +28,6 @@ splitdf <- function(dataframe, trn_size=0.8, seed=NULL) {
 ###
 corpusPreProcess = function(corpus) {
   
-  #transform every word to lower case
-  corpus <- tm_map(corpus, content_transformer(tolower))
-  
   # remove URLs (versione 1)
   #removeURL <- function(x) gsub("http[[:alnum:]]*", "", x)
   #corpus <- tm_map(corpus, content_transformer(removeURL))
@@ -39,11 +36,27 @@ corpusPreProcess = function(corpus) {
   toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
   corpus <- tm_map(corpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
   
+  # transform every word to lower case
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  
   # remove all punctuation - 'fun' and 'fun!' will now be the same
   corpus <- tm_map(corpus, removePunctuation)
   
   # strip out any extra whitespace
   corpus <- tm_map(corpus, stripWhitespace)
+  
+  # remove all strings longer than 15 characters
+  remove.long.terms = function(x, max.length)
+  {
+    return(PlainTextDocument(paste(sapply(strsplit(as.character(x), " "),
+                                          function(y)
+                                          {
+                                            ifelse(nchar(y) > max.length, "", y)
+                                          }
+    ), collapse = " ")))
+  }
+  
+  corpus <- tm_map(corpus, remove.long.terms,max.length=15)
   
   # remove stop words
   corpus <- tm_map(corpus, removeWords, stopwords("english"))
@@ -52,6 +65,19 @@ corpusPreProcess = function(corpus) {
   #corpus <- tm_map(corpus, toSpace, "[[:digit:]]+") <-------------------------------
   # remove all strings which start with non alfanumeric characters
   corpus <- tm_map(corpus, toSpace, "[^[:alnum:]]+")
+  
+  # remove all strings shorter than 3 characters
+  remove.short.terms = function(x, min.length)
+  {
+    return(PlainTextDocument(paste(sapply(strsplit(as.character(x), " "),
+                                          function(y)
+                                          {
+                                            ifelse(nchar(y) < min.length, "", y)
+                                          }
+    ), collapse = " ")))
+  }
+  
+  corpus <- tm_map(corpus, remove.short.terms,min.length=3)
   
   # copy the corpus for next completion
   corpus.copy = corpus
@@ -260,6 +286,10 @@ testing$bug.bug_id = NULL
 corpus_training = VCorpus(DataframeSource(training),readerControl = list(language="eng"))
 corpus_testing = VCorpus(DataframeSource(testing),readerControl = list(language="eng"))
 
+# Preproces corpora
+corpus_training = corpusPreProcess(corpus_training)
+corpus_testing = corpusPreProcess(corpus_testing)
+
 # change corpus id with the id of bug
 for (i in 1:length(corpus_training)) {
   meta(corpus_training[[i]], tag="id") <- row.names(training)[i]
@@ -268,10 +298,6 @@ for (i in 1:length(corpus_training)) {
 for (i in 1:length(corpus_testing)) {
   meta(corpus_testing[[i]], tag="id") <- row.names(testing)[i]
 }
-
-# Preproces corpora
-corpus_training = corpusPreProcess(corpus_training)
-corpus_testing = corpusPreProcess(corpus_testing)
 
 #Create term document matrix for training set
 dtm_training = TermDocumentMatrix(corpus_training)
