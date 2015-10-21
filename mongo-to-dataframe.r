@@ -48,6 +48,7 @@ corpusPreProcess = function(corpus) {
   
   # remove URLs
   toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+  
   corpus <- tm_map(corpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
   
   # transform every word to lower case
@@ -75,10 +76,15 @@ corpusPreProcess = function(corpus) {
   # remove stop words
   corpus <- tm_map(corpus, removeWords, stopwords("english"))
   
+  
+  # remove all strings which are not strings or number
+  corpus <- tm_map(corpus, toSpace, "[^a-z0-9]+")
+  
   # remove all strings which start with numbers
-  #corpus <- tm_map(corpus, toSpace, "[[:digit:]]+") <-------------------------------
-  # remove all strings which start with non alfanumeric characters
-  corpus <- tm_map(corpus, toSpace, "[^[:alnum:]]+")
+  corpus <- tm_map(corpus, toSpace, "[0-9]+[a-z]+")
+  
+  # remove all strings which are only numbers
+  corpus <- tm_map(corpus, toSpace, "\\b[0-9]+\\b")
   
   # remove all strings shorter than 3 characters
   remove.short.terms = function(x, min.length)
@@ -197,7 +203,7 @@ mongo.bson.buffer.append(fields, "_id", 0L)
 fields = mongo.bson.from.buffer(fields)
 
 # create the cursor
-cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 100L)
+cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 2000L)
 
 # iterate over the cursor
 gids = data.frame(stringsAsFactors = FALSE)
@@ -231,6 +237,10 @@ while (mongo.cursor.next(cursor)) {
   col_iniziale = which(colnames(tmp.df)=="bug.long_desc.thetext")[2]
   col_finale = which(colnames(tmp.df)=="bug.long_desc.thetext")[length(which(colnames(tmp.df)=="bug.long_desc.thetext"))]
   
+  if(! (is.na(col_primo) || is.na(col_iniziale) || is.na(col_finale) ))
+  {
+    
+  
   #versione 1: collassa i commenti in un unico campo comments
   
   commentiTMP=data.frame(lapply(tmp.df[col_iniziale:col_finale], as.character), stringsAsFactors=FALSE)
@@ -255,6 +265,8 @@ while (mongo.cursor.next(cursor)) {
   #  colnames(tmp.df)[i] = paste("comment",k)
   #  k=k+1
   #}
+  
+  }
   
   # bind to the master dataframe
   gids = rbind.fill(gids, tmp.df)
