@@ -134,7 +134,7 @@ corpusPreProcess = function(corpus) {
             dict <- dtm$dimnames$Terms[as.integer(names(sort(tapply(dtm$v,
                                                                     dtm$j,sum),
                                                              decreasing=TRUE)))]
-            #corpus = java.stem.completion(corpus, dict, num.threads = 1)
+            corpus = java.stem.completion(corpus, dict, num.threads = 1)
   
   return (corpus)
 
@@ -197,7 +197,7 @@ mongo.bson.buffer.append(fields, "_id", 0L)
 fields = mongo.bson.from.buffer(fields)
 
 # create the cursor
-cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 10L)
+cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 100L)
 
 # iterate over the cursor
 gids = data.frame(stringsAsFactors = FALSE)
