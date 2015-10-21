@@ -7,8 +7,11 @@ library(rJava)
 java.stem.completion <- function(corpus, dictionary, num.threads = 1)
 {
   .jinit(classpath = ".", force.init = TRUE)
+  c=unlist(sapply(corpus, `[`, "content"))
+  d=unlist(sapply(dictionary, `[`, "content"))
+  
   stem.completion.obj <- .jnew("stem_completion/StemCompletion",
-                               as.character(corpus), as.character(dictionary),
+                               as.character(c), as.character(dictionary),
                                as.integer(num.threads))
   result <- VCorpus(VectorSource(stem.completion.obj$stemCompletion()))
   return(result)
@@ -89,22 +92,18 @@ corpusPreProcess = function(corpus) {
   }
   
   corpus <- tm_map(corpus, remove.short.terms,min.length=3)
-<<<<<<< HEAD
-=======
   
   # copy the corpus for next completion
   corpus.copy = corpus
->>>>>>> 4ca8ca0c45e419a447a00fb412bee6ec5517ceb5
   
+  # do the stemming of corpus
+  corpus = tm_map(corpus,stemDocument,language="english")
   
   # remove again all punctuation
   corpus <- tm_map(corpus, removePunctuation)
   
   # strip out again any extra whitespace
   corpus <- tm_map(corpus, stripWhitespace)
-  
-  # do the stemming of corpus
-  corpus = tm_map(corpus,stemDocument,language="english")
   
   # do the completion of corpus with most frequent term
   #corpus = tm_map(corpus, content_transformer(stemCompletion), dictionary = corpus.copy)
@@ -131,10 +130,11 @@ corpusPreProcess = function(corpus) {
             #writeLines(as.character(corpus[[1]]))
   
             # creo dizionario
-            # copy the corpus for next completion
-            corpus.copy = corpus
-            dict <- DocumentTermMatrix(corpus)
-            corpus = java.stem.completion(corpus, corpus.copy, num.threads = 1)
+            dtm <- DocumentTermMatrix(corpus.copy)
+            dict <- dtm$dimnames$Terms[as.integer(names(sort(tapply(dtm$v,
+                                                                    dtm$j,sum),
+                                                             decreasing=TRUE)))]
+            #corpus = java.stem.completion(corpus, dict, num.threads = 1)
   
   return (corpus)
 
@@ -197,7 +197,7 @@ mongo.bson.buffer.append(fields, "_id", 0L)
 fields = mongo.bson.from.buffer(fields)
 
 # create the cursor
-cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 100L)
+cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 10L)
 
 # iterate over the cursor
 gids = data.frame(stringsAsFactors = FALSE)
@@ -284,10 +284,10 @@ splits <- splitdf(gids, trn_size=0.8, seed=204)
 # it returns a list - two data frames called trainset and testset
 str(splits)
 
-lapply(splits, nrow)
+#lapply(splits, nrow)
 
 # view the first few columns in each data frame
-lapply(splits, head)
+#lapply(splits, head)
 
 # save the training and testing sets as data frames
 training <- splits$trainset
@@ -304,8 +304,9 @@ training$bug.bug_id = NULL
 testing$bug.bug_id = NULL
 
 # Create corpora
-corpus_training = Corpus(VectorSource(training),readerControl = list(language="eng"))
-corpus_testing = VCorpus(DataframeSource(testing),readerControl = list(language="eng"))
+corpus_training = VCorpus(DataframeSource(training))
+corpus_testing = VCorpus(DataframeSource(testing))
+
 
 # Preproces corpora
 corpus_training = corpusPreProcess(corpus_training)
