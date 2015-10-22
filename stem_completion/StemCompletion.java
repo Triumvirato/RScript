@@ -33,49 +33,56 @@ public class StemCompletion
 	
 	public String[] stemCompletion() throws Exception
 	{
+		// numDocs indica il numero dei documenti
 		int numDocs = documents.length;
-		/*
-		File f = new File("C:/Users/Andrea/Desktop/log.txt");
-		BufferedWriter b = new BufferedWriter(new FileWriter(f));
-		b.write("num docs " + new Integer(numDocs).toString());
-		for(int j=0;j<numDocs;j++)
-			b.append("\ndocument " + j + ": " + documents[j]);
-		b.close();
-		*/
+		
+		// se ci sono documenti
 		if(numDocs != 0)
 		{
+			// ciclo sui documenti
 			for (int i = 0; i < numDocs; i++)
 			{
-				String[] words = documents[i].trim().split(" ");
+				// creo un array di stringhe in cui ogni elemento
+				// e' una singola parola del documento corrente
+				String[] words = documents[i].split(" ");
+				
+				// docResult sara' l'array che conterra' le stringhe completate
+				// del documento corrente
 				String docResult = " ";
 
+				// ciclo sulle parole di un singolo documento
 				for (String word : words)
 				{
 					boolean completionFound = false;
+					
+					// cerco se nel dizionario è presente una parola
+					// che inizia con la parola corrente ( word )
 					for (String dictWord : dictionary)
 					{
+						// se la trovo, sostituisco la parola corrente
+						// con quella presente nel dizionario
 						if (dictWord.startsWith(word))
 						{
-							docResult += " " + dictWord;
+							docResult +=" " +dictWord;
 							completionFound = true;
 
 							break;
 						}
 					}
-
+					
+					// se non la trovo, lascio la parola cosi' com'è
 					if(!completionFound)
 					{
 						docResult += " " + word;
 					}
 				}
 
-				StemCompletion.this.result[i] = docResult.trim();
+				// sostituisco il documento corrente originale
+				// con quello completato
+				StemCompletion.this.result[i] = docResult;
 			}
-		
-	
 			
 		}
-		
 		return this.result;
 	}
 

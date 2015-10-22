@@ -4,14 +4,34 @@ library(plyr)
 library(tm)
 library(rJava)
 
+###
+### java.stem.completion will do the completion of corpus via a java class
+###
+
 java.stem.completion <- function(corpus, dictionary, num.threads = 1)
 {
+  # initialize JVM
   .jinit(classpath = ".", force.init = TRUE)
-  c=unlist(sapply(corpus, `[`, "content"))
+  
+  # transform corpus into a array
+  c=sapply(corpus, `[`, "content")
+  
+  # now create an array where every component is a concatenate string of a bug's words
+  c_length=length(c)
+  starting_element = unlist(c[[1]])
+  corpus_array = paste(starting_element, collapse = " ")
+  for(i in 2:c_length)
+  {
+    temp = unlist(c[[i]])
+    temp = paste(temp, collapse = " ")
+    corpus_array = append(corpus_array,temp)
+  }
+  
+  # prepare the dictionary
   d=unlist(sapply(dictionary, `[`, "content"))
   
   stem.completion.obj <- .jnew("stem_completion/StemCompletion",
-                               as.character(c), as.character(dictionary),
+                               corpus_array, as.character(dictionary),
                                as.integer(num.threads))
   result <- VCorpus(VectorSource(stem.completion.obj$stemCompletion()))
   return(result)
@@ -43,30 +63,30 @@ splitdf <- function(dataframe, trn_size=0.8, seed=NULL) {
 corpusPreProcess = function(corpus)
 {
   
+  # create a meta pattern
   toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
   
   
   # transform every word to lower case
   corpus <- tm_map(corpus, content_transformer(tolower))
   
-  # remove URLs (versione 1)
-  #removeURL <- function(x) gsub("http[[:alnum:]]*", "", x)
-  #corpus <- tm_map(corpus, content_transformer(removeURL))
+  # remove URLs
+  #corpus <- tm_map(corpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
   
   # remove URLs
-  corpus <- tm_map(corpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
+  corpus <- tm_map(corpus, toSpace, "[[:punct:]]?http[s]?://[[:graph:]]*[[:punct:]]?")
   
   # remove all strings which are shorter than 3
-  corpus <- tm_map(corpus, toSpace, "\\b[a-z]\\w{1,3}\\b")
+  #corpus <- tm_map(corpus, toSpace, "\\b[a-z]\\w{1,3}\\b")
   
   # remove all punctuation - 'fun' and 'fun!' will now be the same
   corpus <- tm_map(corpus, removePunctuation)
   
-  # strip out any extra whitespace
-  corpus <- tm_map(corpus, stripWhitespace)
-  
   # remove stop words
   corpus <- tm_map(corpus, removeWords, stopwords("english"))
+  
+  # strip out any extra whitespace
+  corpus <- tm_map(corpus, stripWhitespace)
   
   # remove all strings which are not strings or number
   corpus <- tm_map(corpus, toSpace, "[^a-z0-9]+")
@@ -80,49 +100,24 @@ corpusPreProcess = function(corpus)
   # remove all strings which are longer than 15 characters
   corpus <- tm_map(corpus, toSpace, "\\b[a-z]\\w{15,}\\b")
   
+  # strip out again any extra whitespace
+  corpus = tm_map(corpus, stripWhitespace)
+  
   # copy the corpus for next completion
   corpus.copy = corpus
   
   # do the stemming of corpus
   corpus = tm_map(corpus,stemDocument,language="english")
   
-  # remove again all punctuation
-  corpus = tm_map(corpus, removePunctuation)
-  
   # strip out again any extra whitespace
   corpus = tm_map(corpus, stripWhitespace)
-  
-  # do the completion of corpus with most frequent term
-  #corpus = tm_map(corpus, content_transformer(stemCompletion), dictionary = corpus.copy)
-  
-            #codice per la Completion alternativa (prof Bilancia) da rivedere
-            #L <- length(corpus)
-            #charList <- lapply(1:L, function(x) as.character(corpus[[x]]))
-            #strSplitList <- lapply(charList, function(x) strsplit(x, " ")[[1]])
-            #processedStrSplitList <- lapply(strSplitList, function(x){
-            #  x <- x[(which(x != ""))] })
-            
-            #i <<- 0
-            #stemCompletionList <- lapply(processedStrSplitList,  function(x){
-            #  x <- stemCompletion(x, dictionary=corpus.copy, type="prevalent")
-            #  names(x) <- NULL
-            #  x <- paste(x, collapse = " ")
-            #  print(i <<- i + 1)
-            #  print(x)	
-            #})
-  
-  
-            ### creazione e salvataggio del corpus pre-processato
-            #corpus <- VCorpus(VectorSource(as.character(stemCompletionList)))
-            #writeLines(as.character(corpus[[1]]))
   
   # creo dizionario
   dtm <- DocumentTermMatrix(corpus.copy)
   dict <- dtm$dimnames$Terms[as.integer(names(sort(tapply(dtm$v,
                                                           dtm$j,sum),
                                                          decreasing=TRUE)))]
-  #corpus = java.stem.completion(corpus, dict, num.threads = 1)
-
+  corpus = java.stem.completion(corpus, dict, num.threads = 1)
   
   return (corpus)
 
@@ -223,30 +218,30 @@ while (mongo.cursor.next(cursor)) {
   {
     
   
-  #versione 1: collassa i commenti in un unico campo comments
-  
-  commentiTMP=data.frame(lapply(tmp.df[col_iniziale:col_finale], as.character), stringsAsFactors=FALSE)
-  commenti=paste(commentiTMP,collapse=" ")
-  
-  colnames(tmp.df)[col_primo] <- "first_comment"
-  
-  #remove columns
-  for(i in col_iniziale:col_finale)
-  {
-    tmp.df["bug.long_desc.thetext"]=NULL
-  }
-  ##tmp.df<- subset(tmp.df, select=-(col_finale-col_iniziale))
-  tmp.df$comments = commenti
-  
-  
-  # Versione 2: utilizza una colonna per ogni commento
-  #k=1
-  #for(i in col_iniziale:col_finale)
-  #{
-  #  #rinonimo le colonne dei commenti come 'comment k'
-  #  colnames(tmp.df)[i] = paste("comment",k)
-  #  k=k+1
-  #}
+    #versione 1: collassa i commenti in un unico campo comments
+    
+    commentiTMP=data.frame(lapply(tmp.df[col_iniziale:col_finale], as.character), stringsAsFactors=FALSE)
+    commenti=paste(commentiTMP,collapse=" ")
+    
+    colnames(tmp.df)[col_primo] <- "first_comment"
+    
+    #remove columns
+    for(i in col_iniziale:col_finale)
+    {
+      tmp.df["bug.long_desc.thetext"]=NULL
+    }
+    ##tmp.df<- subset(tmp.df, select=-(col_finale-col_iniziale))
+    tmp.df$comments = commenti
+    
+    
+    # Versione 2: utilizza una colonna per ogni commento
+    #k=1
+    #for(i in col_iniziale:col_finale)
+    #{
+    #  #rinonimo le colonne dei commenti come 'comment k'
+    #  colnames(tmp.df)[i] = paste("comment",k)
+    #  k=k+1
+    #}
   
   }
   
