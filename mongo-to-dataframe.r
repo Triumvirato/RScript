@@ -1,14 +1,15 @@
 #librerie
+
 library(rmongodb)
 library(plyr)
 library(tm)
 library(rJava)
 
 ###
-### java.stem.completion will do the completion of corpus via a java class
+### java.stem.completion will do the completion of corpus using a java class
 ###
 
-java.stem.completion <- function(corpus, dictionary, num.threads = 1)
+java.stem.completion <- function(corpus, dictionary)
 {
   # initialize JVM
   .jinit(classpath = ".", force.init = TRUE)
@@ -27,12 +28,8 @@ java.stem.completion <- function(corpus, dictionary, num.threads = 1)
     corpus_array = append(corpus_array,temp)
   }
   
-  # prepare the dictionary
-  d=unlist(sapply(dictionary, `[`, "content"))
-  
   stem.completion.obj <- .jnew("stem_completion/StemCompletion",
-                               corpus_array, as.character(dictionary),
-                               as.integer(num.threads))
+                               corpus_array, as.character(dictionary))
   result <- VCorpus(VectorSource(stem.completion.obj$stemCompletion()))
   return(result)
 }
@@ -46,7 +43,6 @@ splitdf <- function(dataframe, trn_size=0.8, seed=NULL) {
   
   if (!is.null(seed)) set.seed(seed)
   index <- 1:nrow(dataframe)
-  #trainindex <- sample(index, trunc(length(index)/2))
   
   smp_size = floor(trn_size * nrow(gids))
   
@@ -66,17 +62,14 @@ corpusPreProcess = function(corpus)
   # create a meta pattern
   toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
   
-  
   # transform every word to lower case
   corpus <- tm_map(corpus, content_transformer(tolower))
-  
-  # remove URLs
-  #corpus <- tm_map(corpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
   
   # remove URLs
   corpus <- tm_map(corpus, toSpace, "[[:punct:]]?http[s]?://[[:graph:]]*[[:punct:]]?")
   
   # remove all strings which are shorter than 3
+  # non funziona bene
   #corpus <- tm_map(corpus, toSpace, "\\b[a-z]\\w{1,3}\\b")
   
   # remove all punctuation - 'fun' and 'fun!' will now be the same
@@ -112,12 +105,12 @@ corpusPreProcess = function(corpus)
   # strip out again any extra whitespace
   corpus = tm_map(corpus, stripWhitespace)
   
-  # creo dizionario
+  # create dictionary ordering words by frequency
   dtm <- DocumentTermMatrix(corpus.copy)
   dict <- dtm$dimnames$Terms[as.integer(names(sort(tapply(dtm$v,
                                                           dtm$j,sum),
                                                          decreasing=TRUE)))]
-  corpus = java.stem.completion(corpus, dict, num.threads = 1)
+  corpus = java.stem.completion(corpus, dict)
   
   return (corpus)
 
@@ -135,8 +128,6 @@ DBNS = "tesi_uniba.mongotesi"
 
 # define the query
 query = mongo.bson.buffer.create()
-
-# mongo.bson.buffer.append(query, "bug.bug_id", "45271")
 
 # when complete, make object from buffer
 query = mongo.bson.from.buffer(query)
@@ -174,18 +165,18 @@ mongo.bson.buffer.append(fields, "bug.long_desc.thetext", 1L)
 
 mongo.bson.buffer.append(fields, "_id", 0L)
 
-
-
 # when complete, make object from buffer
 fields = mongo.bson.from.buffer(fields)
 
 # create the cursor
-cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 2000L)
+# insert limit = xxxL as parameter for limiting the number of result set
+cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields)
 
 # iterate over the cursor
 gids = data.frame(stringsAsFactors = FALSE)
 
-while (mongo.cursor.next(cursor)) {
+while (mongo.cursor.next(cursor))
+{
   
   # iterate and grab the next record
   tmp = mongo.bson.to.list(mongo.cursor.value(cursor))
@@ -247,25 +238,17 @@ while (mongo.cursor.next(cursor)) {
   
   # bind to the master dataframe
   gids = rbind.fill(gids, tmp.df)
-
-  
 }
-
-#remove creations_ts from gids
-gids$bug.creation_ts = NULL
-
-#class(gids)
-
-#dim(gids)
-
-#head(gids)
-
-
 
 # append bugs id to row name
 for (i in 1:nrow(gids)){
   row.names(gids)[i] = gids[i,1]
 }
+
+# remove no more useful columns from gids
+gids$bug.creation_ts = NULL
+gids$bug.long_desc.thetext = NULL
+gids$bug.bug_id = NULL
 
 # divide data in two df, one for training and one for testing ( trn_size set the boundary )
 splits <- splitdf(gids, trn_size=0.8, seed=204)
@@ -273,29 +256,19 @@ splits <- splitdf(gids, trn_size=0.8, seed=204)
 # it returns a list - two data frames called trainset and testset
 str(splits)
 
-#lapply(splits, nrow)
-
-# view the first few columns in each data frame
-#lapply(splits, head)
-
 # save the training and testing sets as data frames
 training <- splits$trainset
 testing <- splits$testset
-
 
 # Filter unusable attributes from testing set ( because not available at t0)
 testing$bug.priority = NULL
 testing$bug.bug_severity = NULL
 testing$comments = NULL
 
-# Delete bug.bug_id because isn't useful
-training$bug.bug_id = NULL
-testing$bug.bug_id = NULL
 
 # Create corpora
 corpus_training = VCorpus(DataframeSource(training))
 corpus_testing = VCorpus(DataframeSource(testing))
-
 
 # Preproces corpora
 corpus_training = corpusPreProcess(corpus_training)
@@ -310,10 +283,12 @@ for (i in 1:length(corpus_testing)) {
   meta(corpus_testing[[i]], tag="id") <- row.names(testing)[i]
 }
 
-#Create term document matrix for training set
+# Create term document matrix for training set
 dtm_training = TermDocumentMatrix(corpus_training)
-inspect(dtm_training)
 
-#Create term document matrix for testing set
+# Create term document matrix for testing set
 dtm_testing = TermDocumentMatrix(corpus_testing)
-inspect(dtm_testing)
+
+# Write dtms on csv file
+write.csv(inspect(dtm_training),"dtm_training.csv")
+write.csv(inspect(dtm_testing),"dtm_testing.csv")
