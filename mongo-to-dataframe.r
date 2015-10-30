@@ -188,8 +188,6 @@ while (mongo.cursor.next(cursor))
   tmp.df$bug.priority = paste("priority", tmp.df$bug.priority ,sep = "_")
   
   tmp.df$bug.bug_severity = paste("bug_severity", tmp.df$bug.bug_severity ,sep = "_")
-  
-  tmp.df$bug.days_resolution = paste("res_days", tmp.df$bug.days_resolution ,sep = "_")
 
   # Convert string to a date value
   tmp.df$bug.creation_ts = as.Date(tmp.df$bug.creation_ts, format="%Y-%m-%d")
@@ -207,8 +205,6 @@ while (mongo.cursor.next(cursor))
   
   if(! (is.na(col_primo) || is.na(col_iniziale) || is.na(col_finale) ))
   {
-    
-  
     #versione 1: collassa i commenti in un unico campo comments
     
     commentiTMP=data.frame(lapply(tmp.df[col_iniziale:col_finale], as.character), stringsAsFactors=FALSE)
@@ -241,8 +237,23 @@ while (mongo.cursor.next(cursor))
 }
 
 # append bugs id to row name
-for (i in 1:nrow(gids)){
-  row.names(gids)[i] = gids[i,1]
+for (i in 1:nrow(gids))
+{
+  row.names(gids)[i] = gids[i,"bug.bug_id"]
+}
+
+# calculate the quantiles
+quantiles_vector = quantile(as.numeric(gids$bug.days_resolution))
+
+# discretize bug fixing time into "fast","normal" or "slow"
+for(i in 1:nrow(gids))
+{
+  if(as.numeric(gids[i,"bug.days_resolution"]) < quantiles_vector[2])
+    gids[i,"bug.days_resolution"] = "fast"
+  else if (as.numeric(gids[i,"bug.days_resolution"]) > quantiles_vector[4])
+    gids[i,"bug.days_resolution"] = "slow"
+  else
+    gids[i,"bug.days_resolution"] = "normal"
 }
 
 # remove no more useful columns from gids
@@ -250,21 +261,29 @@ gids$bug.creation_ts = NULL
 gids$bug.long_desc.thetext = NULL
 gids$bug.bug_id = NULL
 
-# divide data in two df, one for training and one for testing ( trn_size set the boundary )
+# divide data in two df, one for training and one for testing
+# ( trn_size set the boundary )
 splits <- splitdf(gids, trn_size=0.8, seed=204)
 
 # it returns a list - two data frames called trainset and testset
-str(splits)
+#str(splits)
 
 # save the training and testing sets as data frames
 training <- splits$trainset
 testing <- splits$testset
 
+# copy bug.days_resolution in a separate vector
+training_bug.fixing.time = training$bug.days_resolution
+testing_bug.fixing.time = testing$bug.days_resolution
+
+# Filter training set
+training$bug.days_resolution = NULL
+
 # Filter unusable attributes from testing set ( because not available at t0)
 testing$bug.priority = NULL
 testing$bug.bug_severity = NULL
 testing$comments = NULL
-
+testing$bug.days_resolution = NULL
 
 # Create corpora
 corpus_training = VCorpus(DataframeSource(training))
@@ -284,11 +303,15 @@ for (i in 1:length(corpus_testing)) {
 }
 
 # Create term document matrix for training set
-dtm_training = TermDocumentMatrix(corpus_training)
+dtm_training = DocumentTermMatrix(corpus_training)
+
+# Add discretized bug.fixing.time column
+matrix_training= cbind(as.matrix(dtm_training),training_bug.fixing.time)
 
 # Create term document matrix for testing set
-dtm_testing = TermDocumentMatrix(corpus_testing)
+dtm_testing = DocumentTermMatrix(corpus_testing)
+matrix_testing = as.matrix(dtm_testing)
 
-# Write dtms on csv file
-write.csv(inspect(dtm_training),"dtm_training.csv")
-write.csv(inspect(dtm_testing),"dtm_testing.csv")
+# Write training set and testing set on csv file
+write.csv(matrix_training,"training.csv")
+write.csv(matrix_testing,"testing.csv")
