@@ -4,6 +4,7 @@ library(rmongodb)
 library(plyr)
 library(tm)
 library(rJava)
+library(kernlab)
 
 ###
 ### java.stem.completion will do the completion of corpus using a java class
@@ -170,7 +171,7 @@ fields = mongo.bson.from.buffer(fields)
 
 # create the cursor
 # insert limit = xxxL as parameter for limiting the number of result set
-cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields)
+cursor = mongo.find(mongo, ns = DBNS, query = query, fields = fields, limit = 1000L)
 
 # iterate over the cursor
 gids = data.frame(stringsAsFactors = FALSE)
@@ -243,14 +244,15 @@ for (i in 1:nrow(gids))
 }
 
 # calculate the quantiles
-quantiles_vector = quantile(as.numeric(gids$bug.days_resolution))
+quantiles_vector = quantile(as.numeric(gids$bug.days_resolution),prob=c(0.33,0.66))
+
 
 # discretize bug fixing time into "fast","normal" or "slow"
 for(i in 1:nrow(gids))
 {
-  if(as.numeric(gids[i,"bug.days_resolution"]) < quantiles_vector[2])
+  if(as.numeric(gids[i,"bug.days_resolution"]) <= quantiles_vector[1])
     gids[i,"bug.days_resolution"] = "fast"
-  else if (as.numeric(gids[i,"bug.days_resolution"]) > quantiles_vector[4])
+  else if (as.numeric(gids[i,"bug.days_resolution"]) >= quantiles_vector[2])
     gids[i,"bug.days_resolution"] = "slow"
   else
     gids[i,"bug.days_resolution"] = "normal"
@@ -260,6 +262,9 @@ for(i in 1:nrow(gids))
 gids$bug.creation_ts = NULL
 gids$bug.long_desc.thetext = NULL
 gids$bug.bug_id = NULL
+
+# copy bug.days_resolution in a separate vector
+bug.fixing.time = gids$bug.days_resolution
 
 # divide data in two df, one for training and one for testing
 # ( trn_size set the boundary )
@@ -271,47 +276,43 @@ splits <- splitdf(gids, trn_size=0.8, seed=204)
 # save the training and testing sets as data frames
 training <- splits$trainset
 testing <- splits$testset
-
-# copy bug.days_resolution in a separate vector
-training_bug.fixing.time = training$bug.days_resolution
-testing_bug.fixing.time = testing$bug.days_resolution
+training_length = nrow(training)
+testing_length = nrow(testing)
 
 # Filter training set
 training$bug.days_resolution = NULL
 
 # Filter unusable attributes from testing set ( because not available at t0)
-testing$bug.priority = NULL
-testing$bug.bug_severity = NULL
-testing$comments = NULL
+testing$bug.priority = NA
+testing$bug.bug_severity = NA
+testing$comments = NA
 testing$bug.days_resolution = NULL
 
+# Merge training and test in a dataset
+dataset = rbind(training, testing)
+
 # Create corpora
-corpus_training = VCorpus(DataframeSource(training))
-corpus_testing = VCorpus(DataframeSource(testing))
+corpus = VCorpus(DataframeSource(dataset))
 
 # Preproces corpora
-corpus_training = corpusPreProcess(corpus_training)
-corpus_testing = corpusPreProcess(corpus_testing)
+corpus = corpusPreProcess(corpus)
 
 # change corpus id with the id of bug
-for (i in 1:length(corpus_training)) {
-  meta(corpus_training[[i]], tag="id") <- row.names(training)[i]
+for (i in 1:length(corpus)) {
+  meta(corpus[[i]], tag="id") <- row.names(dataset)[i]
 }
 
-for (i in 1:length(corpus_testing)) {
-  meta(corpus_testing[[i]], tag="id") <- row.names(testing)[i]
-}
 
 # Create term document matrix for training set
-dtm_training = DocumentTermMatrix(corpus_training)
-
+dtm_dataset = DocumentTermMatrix(corpus)
 # Add discretized bug.fixing.time column
-matrix_training= cbind(as.matrix(dtm_training),training_bug.fixing.time)
+dataset = cbind(as.matrix(dtm_dataset), bug.fixing.time)
 
-# Create term document matrix for testing set
-dtm_testing = DocumentTermMatrix(corpus_testing)
-matrix_testing = as.matrix(dtm_testing)
+# Re-split dataset into training set and testing set
+
+training = dataset[1:training_length,]
+testing = dataset[training_length+1:testing_length,]
 
 # Write training set and testing set on csv file
-write.csv(matrix_training,"training.csv")
-write.csv(matrix_testing,"testing.csv")
+write.csv(training,"training.csv")
+write.csv(testing,"testing.csv")
